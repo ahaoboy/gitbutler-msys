@@ -1,0 +1,62 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: "-A warnings"
+          toolchain: "nightly"
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          update: true
+          install: >-
+            curl
+            git
+          path-type: inherit
+
+      - shell: msys2 {0}
+        run: |
+          pacman -S perl perl-CPAN msys2-devel make libcrypt-devel --noconfirm
+          perl --version
+          pacman -S zip tree mingw-w64-x86_64-gcc  mingw-w64-x86_64-make mingw-w64-x86_64-zlib --noconfirm
+
+      - shell: msys2 {0}
+        run: |
+          rustup target add x86_64-pc-windows-gnu
+          rustup toolchain install nightly-x86_64-pc-windows-gnu
+          rustup default nightly-x86_64-pc-windows-gnu
+          rustup set default-host x86_64-pc-windows-gnu
+          rustup override set nightly-x86_64-pc-windows-gnu
+          rustc --version
+
+          git clone https://github.com/gitbutlerapp/gitbutler.git
+
+          cd gitbutler
+
+          npm install pnpm -g
+          pnpm setup
+          pnpm install
+
+          pnpm tauri build --config gitbutler-app/tauri.conf.nightly.json || true
+
+          mkdir dist
+          cp './target/release/GitButler Nightly.exe' './dist/GitButler Nightly.exe'
+          cp /mingw64/bin/zlib1.dll  ./dist/zlib1.dll
+          cd dist
+          zip -r -q ./gitbutler.zip .
+      - name: upload
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "./dist/gitbutler.zip"
