@@ -31,32 +31,59 @@ jobs:
           pacman -S perl perl-CPAN msys2-devel make libcrypt-devel --noconfirm
           perl --version
           pacman -S zip tree mingw-w64-x86_64-gcc  mingw-w64-x86_64-make mingw-w64-x86_64-zlib --noconfirm
-
-      - shell: msys2 {0}
-        run: |
           rustup target add x86_64-pc-windows-gnu
           rustup toolchain install nightly-x86_64-pc-windows-gnu
           rustup default nightly-x86_64-pc-windows-gnu
           rustup set default-host x86_64-pc-windows-gnu
           rustup override set nightly-x86_64-pc-windows-gnu
           rustc --version
-
+      - shell: msys2 {0}
+        run: |
           git clone https://github.com/gitbutlerapp/gitbutler.git
-
           cd gitbutler
 
           npm install pnpm -g
           pnpm setup
           pnpm install
 
-          pnpm tauri build --config gitbutler-app/tauri.conf.nightly.json || true
+          RUSTFLAGS="--cfg tokio_unstable" pnpm tauri build --config gitbutler-app/tauri.conf.nightly.json || true
+          mkdir gitbutler-nightly
+          cp './target/release/GitButler Nightly.exe' './gitbutler-nightly/GitButler Nightly.exe'
+          cp './target/release/WebView2Loader.dll' './gitbutler-nightly/WebView2Loader.dll'
+          cp /mingw64/bin/zlib1.dll  ./gitbutler-nightly/zlib1.dll
+          cd gitbutler-nightly
+          zip -r -q ./gitbutler-nightly.zip .
+          cd ..
 
-          mkdir dist
-          cp './target/release/GitButler Nightly.exe' './dist/GitButler Nightly.exe'
-          cp /mingw64/bin/zlib1.dll  ./dist/zlib1.dll
-          cd dist
-          zip -r -q ./gitbutler.zip .
+          RUSTFLAGS="--cfg tokio_unstable" pnpm tauri build --config gitbutler-app/tauri.conf.release.json || true
+          mkdir gitbutler-release
+          cp './target/release/GitButler.exe' './gitbutler-release/GitButler.exe'
+          cp './target/release/WebView2Loader.dll' './gitbutler-release/WebView2Loader.dll'
+          cp /mingw64/bin/zlib1.dll  ./gitbutler-release/zlib1.dll
+          cd gitbutler-release
+          zip -r -q ./gitbutler-release.zip .
+          cd ..
+
+          RUSTFLAGS="--cfg tokio_unstable" pnpm tauri build || true
+          mkdir gitbutler-dev
+          cp './target/release/GitButler Dev.exe' './gitbutler-dev/GitButler Dev.exe'
+          cp './target/release/WebView2Loader.dll' './gitbutler-dev/WebView2Loader.dll'
+          cp /mingw64/bin/zlib1.dll  ./gitbutler-dev/zlib1.dll
+          cd gitbutler-dev
+          zip -r -q ./gitbutler-dev.zip .
+          cd ..
+
+          RUSTFLAGS="--cfg tokio_unstable" cargo build || true
+          mkdir gitbutler-debug
+          cp './target/debug/gitbutler-app.exe' './gitbutler-debug/gitbutler-app.exe'
+          cp './target/debug/WebView2Loader.dll' './gitbutler-debug/WebView2Loader.dll'
+          cp /mingw64/bin/zlib1.dll ./gitbutler-debug/zlib1.dll
+          cd gitbutler-debug
+          zip -r -q ./gitbutler-debug.zip .
+          cd ..
+
+
       - name: upload
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "./gitbutler/dist/gitbutler.zip"
+          artifacts: "./gitbutler/gitbutler-*/*.zip"
