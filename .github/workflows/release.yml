@@ -59,4 +59,4 @@ jobs:
       - name: upload
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "./dist/gitbutler.zip"
+          artifacts: "./gitbutler/dist/gitbutler.zip"
